@@ -18,10 +18,20 @@ export const createTask = async(req, res) => {
 
 export const getTasks = async(req, res) => {
     try{
+        const  { page = 1, limit = 10, completed }= req.query;
+
+        const skip = (page-1) * limit;
+
+        if(completed !== undefined) {
+            where.completed = completed === "true";
+        }
+
         const tasks = await prisma.task.findMany({
             where:{
                 userId: req.user.id,
             },
+            skip: Number(skip),
+            take: Number(limit),
             orderBy: {
                 createdAt: "desc",
             },
