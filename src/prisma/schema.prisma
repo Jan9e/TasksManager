@@ -14,4 +14,15 @@ model user {
   isVerified   Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  tasks Task[]
+}
+
+model Task{
+  id            String    @id @default(uuid())
+  title         String    
+  completed     Boolean   @default(false)
+  userId        String
+  user          user      @relation(fields: [userId], references:[id])
+  createdAt     DateTime  @default(now())
 }
