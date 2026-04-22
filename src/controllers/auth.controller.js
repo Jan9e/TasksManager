@@ -1,6 +1,8 @@
 import prisma from "../lib/prisma.js";
 import bcrypt from "bcrypt";
-import { generateToken } from "../utils/jwt.js";
+import jwt from "jsonwebtoken";
+import { generateAccessToken, generateRefreshToken } from "../utils/jwt.js";
+
 
 export const register = async(req, res)=>{
     try{
@@ -26,8 +28,9 @@ export const register = async(req, res)=>{
             },
         });
 
-        const token = generateToken(user);
-        res.json({user, token});
+        const { passwordHash: rt, ...safeUser } = user;
+
+        res.json({user:safeUser});
     }catch(err){
         res.status(500).json({error:err.message});
     }
@@ -50,9 +53,56 @@ export const login = async(req, res)=>{
         if(!valid){
             return res.status(401).json({message:"Invalid Password!"});
         }
-        const token= generateToken(user);
-        res.json({user, token});
+        const accessToken= generateAccessToken(user);
+        const refreshToken = generateRefreshToken(user);
+
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { refreshToken },
+        });
+
+        res.json({user, accessToken, refreshToken });
     } catch(err) {
         res.status(500).json({error:err.message});
     }
+};
+
+export const refresh = async (req, res) => {
+    const { refreshToken } = req.body;
+
+    if(!refreshToken) {
+        return res.status(401).json({ message: "No refresh token" });
+    }
+
+    try{
+        const decoded = jwt.verify(
+            refreshToken,
+            process.env.REFRESH_SECRET
+        );
+
+        const user = await prisma.user.findUnique({
+            where: { id:decoded.id },
+        });
+
+        if(!user || user.refreshToken !== refreshToken) {
+            return res.status(403).json({ message: "Invalid refresh token" });
+        }
+
+        const newAccessToken = generateAccessToken(user);
+
+        res.json({ accessToken: newAccessToken });
+    } catch (err) {
+        res.status(403).json({ message: "Token expired or invalid from catch" });
+    }
+};
+
+export const logout = async (req, res) => {
+    const userId = req.user.id;
+
+    await prisma.user.update({
+        where: { id: userId },
+        data: { refreshToken: null },
+    });
+
+    res.json({ message: "Logged out" });
 };
