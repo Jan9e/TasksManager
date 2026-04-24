@@ -24,4 +24,4 @@ jobs:
         run: npx prisma generate
 
       - name: Build docker image
-        run: docker build -t taskmanager-app
+        run: docker build -t taskmanager-app .
